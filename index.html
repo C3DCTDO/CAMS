@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการข้อมูลคอมพิวเตอร์และอุปกรณ์ประกอบ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- เพิ่ม SweetAlert2 สำหรับ Popup สวยงาม -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        
+        body { 
+            font-family: 'Sarabun', sans-serif; 
+            background-color: #f8fafc; /* เปลี่ยนเป็นโทนสว่างอมฟ้าเทา ให้ดูสะอาดตา */
+            color: #0f172a; 
+        }
+
+        .table-container { 
+            max-height: 600px; 
+            overflow-y: auto; 
+            overflow-x: auto; 
+            border-radius: 1rem;
+        }
+
+        .sticky-header th { 
+            position: sticky; 
+            top: 0; 
+            background: #faf5ff; 
+            z-index: 20; 
+            box-shadow: 0 1px 2px rgba(107, 33, 168, 0.1); 
+            color: #4c1d95;
+            font-weight: 700;
+        }
+
+        .sticky-action { 
+            position: sticky; 
+            right: 0; 
+            background: white; 
+            z-index: 10; 
+            box-shadow: -4px 0 15px rgba(0,0,0,0.03);
+        }
+
+        .scale-in { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* เพิ่มแอนิเมชันเล่นแสงวับๆ สำหรับโลโก้ */
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) skewX(-15deg); }
+            100% { transform: translateX(200%) skewX(-15deg); }
+        }
+        .animate-shimmer {
+            animation: shimmer 2s infinite;
+        }
+
+        .pdf-preview-area {
+            background: #525659;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+            overflow-y: auto;
+            max-height: 65vh;
+        }
+
+        .pdf-page {
+            background: white;
+            width: 297mm; 
+            min-height: 210mm;
+            padding: 10mm;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            font-size: 8pt;
+        }
+        
+        /* Custom SweetAlert Font */
+        .swal2-popup { font-family: 'Sarabun', sans-serif !important; border-radius: 1.5rem !important; }
+    </style>
+</head>
+<body class="min-h-screen pb-10 relative overflow-x-hidden selection:bg-purple-200">
+
+    <!-- พื้นหลังตกแต่งธีม PEA สไตล์ Modern Glassmorphism -->
+    <div class="fixed top-[-15%] left-[-10%] w-[600px] h-[600px] bg-purple-600/15 rounded-full blur-[100px] pointer-events-none z-[-1]"></div>
+    <div class="fixed bottom-[-10%] right-[-5%] w-[500px] h-[500px] bg-amber-500/15 rounded-full blur-[100px] pointer-events-none z-[-1]"></div>
+    <div class="fixed top-[30%] left-[50%] w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[90px] pointer-events-none z-[-1]"></div>
+
+    <div class="max-w-[98%] mx-auto px-4 py-8">
+        
+        <!-- Search Section -->
+        <div id="searchSection" class="bg-white/70 backdrop-blur-xl p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white mb-10 text-center relative overflow-hidden">
+            <div id="syncBadge" class="absolute top-6 right-6 flex items-center bg-white border border-purple-100 px-4 py-1.5 rounded-full shadow-sm hidden">
+                <div id="syncDot" class="w-2.5 h-2.5 bg-slate-300 rounded-full mr-2"></div>
+                <span id="syncText" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">รอดึงข้อมูล...</span>
+            </div>
+
+            <!-- Logo PEA Area (Modernized) -->
+            <div class="flex justify-center items-center gap-4 mb-8 relative">
+                <div class="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-indigo-900 via-purple-800 to-fuchsia-900 shadow-2xl shadow-purple-500/40 flex items-center justify-center relative overflow-hidden group border border-white/20 ring-4 ring-purple-50">
+                    <!-- เอฟเฟกต์แสงสะท้อน -->
+                    <div class="absolute inset-0 bg-white/5 group-hover:bg-transparent transition-colors duration-500 z-0"></div>
+                    <div class="absolute top-0 bottom-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:animate-shimmer z-10"></div>
+                    <!-- ไอคอนคอมพิวเตอร์ที่ทันสมัย -->
+                    <i class="fas fa-laptop-code text-5xl text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.6)] transform group-hover:scale-110 transition-all duration-300 z-20"></i>
+                </div>
+            </div>
+            
+            <h1 class="text-lg md:text-2xl font-extrabold mb-1 py-2 leading-relaxed text-transparent bg-clip-text bg-gradient-to-r from-purple-950 via-purple-800 to-indigo-700 tracking-tight drop-shadow-sm">ระบบจัดการข้อมูลคอมพิวเตอร์และอุปกรณ์ประกอบ</h1>
+            <h2 class="text-sm md:text-base font-bold text-slate-500 uppercase tracking-widest mb-6 drop-shadow-sm">Computer Asset Management System (CAMS)</h2>
+            <p class="text-indigo-600 font-semibold mb-8 text-lg flex items-center justify-center gap-2">
+                <i class="fas fa-microchip opacity-70"></i> พัฒนาโดย ผปด.กดส.กฟก.3
+            </p>
+            
+            <!-- ปรับโครงสร้างส่วนค้นหาเพื่อใส่ข้อความไว้ด้านล่างช่องค้นหา -->
+            <div class="max-w-4xl mx-auto mb-6">
+                <div class="flex flex-wrap gap-4">
+                    <div class="relative flex-1 min-w-[300px] group">
+                        <input type="text" id="searchInput" 
+                            onkeydown="if(event.key === 'Enter') onFastSearch(this.value.trim())"
+                            placeholder="ค้นหา... รหัสพนักงาน, รหัสทรัพย์สิน, SNo., ชื่อคอมพิวเตอร์, หน่วยงาน" 
+                            class="w-full pl-14 pr-6 py-5 rounded-[1.5rem] border-2 border-transparent bg-purple-50/50 focus:bg-white focus:ring-4 focus:ring-purple-100/50 focus:border-purple-400 outline-none shadow-inner transition-all text-lg font-medium text-purple-900 placeholder:text-purple-300 group-hover:shadow-md">
+                        <div class="absolute left-6 top-1/2 -translate-y-1/2 text-purple-400 transition-colors group-focus-within:text-purple-600">
+                            <i class="fas fa-search text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="onFastSearch(document.getElementById('searchInput').value.trim())" class="bg-gradient-to-r from-purple-800 to-indigo-700 hover:from-purple-900 hover:to-indigo-800 text-white px-10 py-5 rounded-[1.5rem] font-bold transition-all shadow-lg shadow-purple-300 hover:shadow-purple-400 hover:-translate-y-1 active:scale-95 flex items-center gap-2">
+                            ค้นหาข้อมูล
+                        </button>
+                        <button onclick="resetSystem()" title="รีเฟรชระบบ" class="bg-white hover:bg-amber-50 text-amber-600 border-2 border-amber-100 px-6 py-5 rounded-[1.5rem] font-bold transition-all shadow-sm hover:shadow-md active:rotate-180 duration-500">
+                            <i class="fas fa-sync-alt text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- ข้อความแนะนำที่ย้ายมาไว้ใต้ช่องค้นหา -->
+                <p class="text-sm text-slate-500 mt-3 text-left px-2 flex items-center gap-2 font-medium">
+                    <i class="fas fa-info-circle text-indigo-400"></i> สามารถค้นหาได้จาก: รหัสพนักงาน, รหัสทรัพย์สิน, Serial Number ของอุปกรณ์, Computer Name และ หน่วยงาน
+                </p>
+            </div>
+
+            <!-- Dashboard Links -->
+            <div class="flex flex-wrap gap-4 max-w-4xl mx-auto mt-4">
+                <a href="https://itms-c3.vercel.app/" target="_blank" class="flex-1 min-w-[250px] bg-white/60 backdrop-blur-md border border-white hover:border-purple-300 hover:bg-white text-purple-800 p-5 rounded-[1.5rem] font-bold transition-all shadow-[0_4px_15px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgb(107,33,168,0.1)] flex items-center justify-center gap-4 hover:-translate-y-1 group cursor-pointer">
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 group-hover:from-purple-600 group-hover:to-purple-800 rounded-xl flex items-center justify-center text-purple-700 group-hover:text-white transition-colors duration-300 shadow-inner">
+                        <i class="fas fa-chart-pie text-xl"></i>
+                    </div>
+                    <span class="text-sm text-left leading-tight text-slate-700 group-hover:text-purple-900 transition-colors">Dashboard ระบบการจัดการไอที <br><span class="text-[11px] opacity-60 font-medium">IT Management System</span></span>
+                </a>
+                <a href="https://app.powerbi.com/view?r=eyJrIjoiNGE3NzEyODgtOTcyYi00NzkwLWI2NjItOTEzZmUxNjU2NGZiIiwidCI6ImEyMzM5ZjZkLWJmNGEtNDRkYi04OGVjLWNiOGYyN2RhNGFiYiIsImMiOjEwfQ%3D%3D" target="_blank" class="flex-1 min-w-[250px] bg-white/60 backdrop-blur-md border border-white hover:border-amber-300 hover:bg-white text-purple-800 p-5 rounded-[1.5rem] font-bold transition-all shadow-[0_4px_15px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgb(245,158,11,0.15)] flex items-center justify-center gap-4 hover:-translate-y-1 group cursor-pointer">
+                    <div class="w-12 h-12 bg-gradient-to-br from-amber-50 to-amber-100 group-hover:from-amber-400 group-hover:to-amber-500 rounded-xl flex items-center justify-center text-amber-600 group-hover:text-white transition-colors duration-300 shadow-inner">
+                        <i class="fas fa-headset text-xl"></i>
+                    </div>
+                    <span class="text-sm text-left leading-tight text-slate-700 group-hover:text-amber-900 transition-colors">Dashboard Service Desk <br><span class="text-[11px] opacity-60 font-medium">รายงานการแจ้งและแก้ปัญหา กฟก.3</span></span>
+                </a>
+                
+                <!-- ปุ่มใหม่ Ex-Personal -->
+                <a onclick="openExPersonalTab()" class="flex-1 min-w-[250px] bg-white/60 backdrop-blur-md border border-white hover:border-emerald-300 hover:bg-white text-emerald-800 p-5 rounded-[1.5rem] font-bold transition-all shadow-[0_4px_15px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgb(16,185,129,0.15)] flex items-center justify-center gap-4 hover:-translate-y-1 group cursor-pointer">
+                    <div class="w-12 h-12 bg-gradient-to-br from-emerald-50 to-emerald-100 group-hover:from-emerald-400 group-hover:to-emerald-500 rounded-xl flex items-center justify-center text-emerald-600 group-hover:text-white transition-colors duration-300 shadow-inner">
+                        <i class="fas fa-boxes text-xl"></i>
+                    </div>
+                    <span class="text-sm text-left leading-tight text-slate-700 group-hover:text-emerald-900 transition-colors">Ex-Personal <br><span class="text-[11px] opacity-60 font-medium">ทรัพย์สินที่จำหน่ายแล้ว, เครื่องส่วนตัว</span></span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Result Section (ระบบค้นหาหลัก) -->
+        <div id="mainContent" class="bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-white overflow-hidden mb-10 min-h-[400px] flex flex-col items-center justify-center relative">
+            
+            <div id="welcomeState" class="py-24 text-center w-full">
+                <!-- ลบไอคอนแว่นขยายและข้อความเริ่มต้นออกเพื่อให้เป็นพื้นที่ว่างสะอาดตา -->
+            </div>
+
+            <div id="tableWrapper" class="hidden w-full h-full flex-col">
+                <div class="bg-gradient-to-r from-purple-900 to-indigo-900 text-white px-8 py-5 flex justify-between items-center border-b-4 border-amber-400">
+                    <span class="font-bold flex items-center tracking-wide text-sm md:text-lg">
+                        <i class="fas fa-list-ul mr-3 text-amber-400 drop-shadow-sm"></i> รายการทรัพย์สินที่ค้นพบ
+                    </span>
+                    <div class="flex items-center gap-4">
+                        <span id="recordCount" class="bg-white/10 px-4 py-1.5 rounded-full text-[10px] md:text-sm font-bold text-purple-50 border border-white/20 hidden sm:inline-block backdrop-blur-sm">
+                            0 รายการ
+                        </span>
+                        <button onclick="openExportModal()" class="bg-gradient-to-br from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center shadow-lg hover:shadow-amber-500/30 active:scale-95">
+                            <i class="fas fa-download mr-2"></i> <span class="hidden md:inline">ส่งออกเอกสาร</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="sticky-header">
+                            <tr id="tableHeader" class="border-b-2 border-purple-100"></tr>
+                        </thead>
+                        <tbody id="resultBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="noData" class="hidden py-24 text-center w-full">
+                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-rose-50 mb-6">
+                    <i class="fas fa-exclamation-circle text-5xl text-rose-200"></i>
+                </div>
+                <p class="text-2xl font-bold text-slate-700">ไม่พบข้อมูลที่ตรงกับคำค้นหา</p>
+                <p class="text-slate-400 mt-2 font-medium">โปรดตรวจสอบคำค้นหาอีกครั้ง หรือลองใช้คำค้นหาที่กว้างขึ้น</p>
+            </div>
+        </div>
+
+        <!-- Result Section (ระบบใหม่: Ex-Personal) -->
+        <div id="exPersonalWrapper" class="hidden bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-white overflow-hidden mb-10 min-h-[400px] flex-col w-full">
+            <div class="bg-gradient-to-r from-emerald-800 to-teal-700 text-white px-8 py-5 flex flex-wrap gap-4 justify-between items-center border-b-4 border-amber-400">
+                
+                <div class="flex items-center gap-4">
+                    <!-- เพิ่มปุ่ม กลับหน้าหลัก เผื่อกรณีเปิดในแท็บเดิม -->
+                    <button onclick="returnToMain()" title="กลับหน้าหลัก" class="bg-white/10 hover:bg-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center transition-all border border-white/30 backdrop-blur-sm">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <span class="font-bold flex items-center tracking-wide text-sm md:text-lg whitespace-nowrap">
+                        <i class="fas fa-boxes mr-3 text-amber-400 drop-shadow-sm"></i> ฐานข้อมูล Ex-Personal
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-3 w-full md:w-auto flex-wrap">
+                    <!-- ช่องค้นหาแบบข้อความ (ทุกคอลัมน์) -->
+                    <div class="relative flex-1 md:w-64 min-w-[200px]">
+                        <input type="text" id="exPersonalSearchInput" onkeyup="filterExPersonal()" placeholder="พิมพ์คำค้นหา..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/30 bg-white/10 text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm text-sm transition-all">
+                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/60"><i class="fas fa-search"></i></div>
+                    </div>
+
+                    <!-- Dropdown ฟิลเตอร์ คอลัมน์ L -->
+                    <select id="exPersonalFilter" onchange="filterExPersonal()" class="bg-white/10 border border-white/30 text-white text-sm rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-white/50 w-full md:w-auto backdrop-blur-sm [&>option]:text-slate-800 transition-all">
+                        <option value="">เลือกหน่วยงาน</option>
+                    </select>
+
+                    <!-- ปุ่มรีเฟรชข้อมูล Ex-Personal -->
+                    <button onclick="loadExPersonalView()" title="รีเฟรชข้อมูล" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm border border-white/30 backdrop-blur-sm active:rotate-180 duration-500 flex items-center justify-center">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    
+                    <button onclick="openExPersonalModal(false)" class="bg-gradient-to-br from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-teal-950 px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center shadow-lg hover:shadow-amber-500/30 active:scale-95 whitespace-nowrap">
+                        <i class="fas fa-plus mr-2"></i> เพิ่มข้อมูล
+                    </button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="w-full text-left border-collapse">
+                    <thead class="sticky-header">
+                        <tr id="exPersonalHeader" class="border-b-2 border-emerald-100 bg-emerald-50 text-emerald-900"></tr>
+                    </thead>
+                    <tbody id="exPersonalBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal (ระบบค้นหาหลัก คงเดิม) -->
+    <div id="editModal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden scale-in border border-slate-100">
+            <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-extrabold text-slate-800 text-2xl flex items-center"><i class="fas fa-edit text-amber-500 mr-3 drop-shadow-sm"></i> อัปเดตข้อมูล</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-rose-500 hover:bg-rose-50 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border border-slate-200 transition-colors"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-8 space-y-6">
+                <div class="flex gap-4 p-5 bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-[1.5rem] border border-amber-200/50 shadow-inner">
+                    <div class="flex-1">
+                        <p class="text-[11px] uppercase font-extrabold text-amber-700 tracking-wider mb-1">SNo. (รหัสอ้างอิง)</p>
+                        <p id="refSerialNo" class="font-bold text-slate-800">-</p>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-[11px] uppercase font-extrabold text-amber-700 tracking-wider mb-1">รหัสสินทรัพย์ / ผู้ถือครอง</p>
+                        <p id="refAssetAndPers" class="font-bold text-slate-800 text-sm">-</p>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">ชื่อคอมพิวเตอร์ (Computer Name)</label>
+                    <input type="text" id="inputColO" class="w-full px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none font-medium text-slate-800 transition-all bg-slate-50 focus:bg-white">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">ประวัติการซ่อมบำรุง / หมายเหตุ</label>
+                    <textarea id="inputColP" rows="4" class="w-full px-5 py-4 rounded-2xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 outline-none font-medium resize-none text-slate-800 transition-all bg-slate-50 focus:bg-white"></textarea>
+                </div>
+            </div>
+            <div class="p-8 bg-slate-50 flex gap-4 border-t border-slate-100">
+                <button onclick="closeModal()" class="flex-1 py-4 text-slate-600 font-bold border-2 border-slate-200 hover:bg-slate-100 hover:text-slate-800 rounded-[1.5rem] transition-all">ยกเลิก</button>
+                <button id="saveBtn" class="flex-[2] py-4 bg-gradient-to-r from-purple-800 to-indigo-700 hover:from-purple-900 hover:to-indigo-800 text-white font-bold rounded-[1.5rem] shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 active:scale-95 transition-all">บันทึกข้อมูล</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal เพิ่ม/แก้ไข (ระบบใหม่: Ex-Personal) -->
+    <div id="exPersonalModal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-[60] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl overflow-hidden scale-in border border-slate-100 flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-emerald-50/50">
+                <h3 id="exModalTitle" class="font-extrabold text-slate-800 text-xl flex items-center"><i class="fas fa-edit text-amber-500 mr-3 drop-shadow-sm"></i> จัดการข้อมูล Ex-Personal</h3>
+                <button onclick="closeExPersonalModal()" class="text-slate-400 hover:text-rose-500 hover:bg-rose-50 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border border-slate-200 transition-colors"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="exPersonalFormContainer">
+                    <!-- Input จะถูกสร้างอัตโนมัติตาม Headers ด้วย JS -->
+                </div>
+                <input type="hidden" id="exPersonalTargetSheetRow" value="">
+                <input type="hidden" id="exPersonalTargetIndex" value="">
+            </div>
+            
+            <div class="p-6 bg-slate-50 flex gap-4 border-t border-slate-100">
+                <button onclick="closeExPersonalModal()" class="flex-1 py-3 text-slate-600 font-bold border-2 border-slate-200 hover:bg-slate-100 hover:text-slate-800 rounded-xl transition-all">ยกเลิก</button>
+                <button onclick="saveExPersonalData()" class="flex-[2] py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 active:scale-95 transition-all">
+                    บันทึกข้อมูล
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal (คงเดิม) -->
+    <div id="exportModal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden scale-in border border-slate-100">
+            <div class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-extrabold text-slate-800 text-xl">ส่งออกข้อมูล</h3>
+                <button onclick="closeExportModal()" class="text-slate-400 hover:text-rose-500 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow-sm border border-slate-200 transition-colors"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-8 space-y-4">
+                <button onclick="previewAndExport('excel')" class="w-full p-5 border-2 border-slate-100 rounded-[1.5rem] hover:bg-emerald-50 hover:border-emerald-200 flex items-center gap-5 transition-all hover:-translate-y-1 hover:shadow-md group">
+                    <div class="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-600 rounded-[1.2rem] flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner"><i class="fas fa-file-excel drop-shadow-sm"></i></div>
+                    <div class="text-left"><p class="font-extrabold text-slate-800 text-sm">ดาวน์โหลด Excel</p><p class="text-xs text-slate-500 mt-1">ตารางข้อมูล (Sarabun)</p></div>
+                </button>
+                <button onclick="previewAndExport('pdf')" class="w-full p-5 border-2 border-slate-100 rounded-[1.5rem] hover:bg-rose-50 hover:border-rose-200 flex items-center gap-5 transition-all hover:-translate-y-1 hover:shadow-md group">
+                    <div class="w-14 h-14 bg-gradient-to-br from-rose-100 to-rose-200 text-rose-600 rounded-[1.2rem] flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner"><i class="fas fa-file-pdf drop-shadow-sm"></i></div>
+                    <div class="text-left"><p class="font-extrabold text-slate-800 text-sm">สร้างรายงาน PDF</p><p class="text-xs text-slate-500 mt-1">พรีวิวและบันทึกรายงาน</p></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Preview Modal (คงเดิม) -->
+    <div id="pdfPreviewModal" class="fixed inset-0 bg-slate-900/80 hidden items-center justify-center z-[70] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-[95%] h-[90vh] overflow-hidden scale-in flex flex-col">
+            <div class="p-6 bg-slate-800 text-white flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-rose-500 rounded-xl flex items-center justify-center text-xl shadow-inner"><i class="fas fa-file-pdf"></i></div>
+                    <div><h3 class="font-bold text-lg text-amber-400">ตรวจสอบตัวอย่าง PDF</h3><p class="text-[11px] text-slate-300">แนวนอน (A4 Landscape)</p></div>
+                </div>
+                <button onclick="closePDFPreview()" class="text-slate-400 hover:text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="pdf-preview-area" id="pdfScrollContainer"><div id="pdfContentToExport" class="pdf-page"></div></div>
+            <div class="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-4">
+                <button onclick="closePDFPreview()" class="px-8 py-3 text-slate-600 font-bold border-2 border-slate-200 hover:bg-slate-200 rounded-[1.2rem] transition-colors">ยกเลิก</button>
+                <button onclick="finalDownloadPDF()" class="px-10 py-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white font-bold rounded-[1.2rem] shadow-lg shadow-rose-500/30 flex items-center hover:shadow-rose-500/50 hover:-translate-y-1 transition-all"><i class="fas fa-save mr-2"></i> บันทึก PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Excel Preview Modal (คงเดิม) -->
+    <div id="excelPreviewModal" class="fixed inset-0 bg-slate-900/80 hidden items-center justify-center z-[60] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden scale-in">
+            <div class="p-6 bg-slate-800 text-white flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center text-xl shadow-inner"><i class="fas fa-file-excel"></i></div>
+                    <div><h3 class="font-bold text-lg text-amber-400">ตรวจสอบตัวอย่าง Excel</h3><p class="text-[11px] text-slate-300">แสดงผล 5 แถวแรก</p></div>
+                </div>
+                <button onclick="closeExcelPreview()" class="text-slate-400 hover:text-white w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-8"><div class="overflow-x-auto border-2 border-slate-100 rounded-2xl max-h-[400px] shadow-sm"><table class="w-full text-left text-[11px] border-collapse"><thead class="bg-slate-50 sticky top-0"><tr id="previewTableHeader"></tr></thead><tbody id="previewTableBody"></tbody></table></div></div>
+            <div class="p-6 bg-slate-50 flex justify-end gap-4 border-t border-slate-200">
+                <button onclick="closeExcelPreview()" class="px-8 py-3 text-slate-600 font-bold border-2 border-slate-200 hover:bg-slate-200 rounded-[1.2rem] transition-colors">ยกเลิก</button>
+                <button onclick="finalDownloadExcel()" class="px-10 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold rounded-[1.2rem] shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-1 transition-all"><i class="fas fa-download mr-2"></i> ดาวน์โหลด Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // เปลี่ยนเป็น URL ของ Google Apps Script Web App ของคุณ
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz31cOpePDcPWQU2Bflj4dboE52kNRhO4ggidM_1w_tzXujgmpViEaDdtpAYtMF6-xF/exec";
+        
+        const HEADERS = [
+            "สินทรัพย์", "SNo.", "เลขที่สินค้าคงคลัง", "คำอธิบาย", "เลขผลิตภัณฑ์", 
+            "Cap.date", "มูลค่าได้มา", "ค่าเสื่อมสะสม", "มูลค่าบัญชี", "BusA", 
+            "ศ.ต้นทุน", "หน่วยงานย่อ", "รหัสพนักงาน", "ชื่อ-นามสกุล", "Computename",
+            "ประวัติการซ่อม", "วัน-เวลาทำรายการ"
+        ];
+
+        // ข้อมูล Mock Data ไว้สำหรับพรีวิวในกรณีที่ Fetch ข้อมูลจริงไม่สำเร็จ
+        const MOCK_DATA = [
+            { colA: "7400001234", colB: "SN-DELL-001", colC: "INV-001", colD: "Notebook Dell Latitude 5420", colE: "DELL-5420", colF: "01/01/2023", colG: "35000", colH: "5000", colI: "30000", colJ: "B01", colK: "กฟก.3", colL: "ผสส.", colM: "501234", colN: "นาย สมชาย ใจดี", colO: "NB-501234", colP: "-", colQ: "15/02/2024 10:30:00" },
+            { colA: "7400001235", colB: "SN-HP-002", colC: "INV-002", colD: "PC HP ProDesk 400", colE: "HP-400G7", colF: "15/06/2022", colG: "25000", colH: "10000", colI: "15000", colJ: "B01", colK: "กฟก.3", colL: "ผบค.", colM: "519876", colN: "นางสาว สมหญิง งามยิ่ง", colO: "PC-519876", colP: "เพิ่ม RAM 8GB", colQ: "10/01/2024 09:15:00" },
+            { colA: "7400001236", colB: "SN-LENOVO-03", colC: "INV-003", colD: "Notebook Lenovo ThinkPad", colE: "ThinkPad-T14", colF: "10/11/2023", colG: "40000", colH: "2000", colI: "38000", colJ: "B01", colK: "กฟก.3", colL: "ผกจ.", colM: "523456", colN: "นาย ยอดเยี่ยม มากฝีมือ", colO: "NB-523456", colP: "-", colQ: "-" }
+        ];
+
+        let cachedData = []; 
+        let currentDisplayedData = [];
+
+        window.onload = () => {
+            // ตรวจสอบ Hash ว่ามีการเรียกเปิดแบบแท็บใหม่ (Ex-Personal) หรือไม่ 
+            if (window.location.hash === '#view=ex') {
+                // ซ่อนส่วนหัว (ช่องค้นหาและปุ่ม Dashboard) ออก เพื่อให้หน้าเว็บดูสะอาดตาเป็นของ Ex-Personal เท่านั้น
+                document.getElementById('searchSection').classList.add('hidden');
+                loadExPersonalView();
+            } else {
+                fetchAllData(true);
+            }
+        };
+
+        function returnToMain() {
+            // ฟังก์ชันสำหรับกดปุ่มกลับหน้าหลัก ในกรณีที่เปิดดูในหน้าต่างเดิม
+            window.location.hash = '';
+            document.getElementById('searchSection').classList.remove('hidden');
+            resetSystem();
+        }
+
+        function openExPersonalTab() {
+            const currentUrl = window.location.href.split('#')[0].split('?')[0]; 
+            
+            // ดักจับ: ถ้ากำลังทดสอบพรีวิวใน Canvas (blob:) หรือเปิดไฟล์ในคอมตัวเอง (file:) ให้เปลี่ยนแค่หน้าต่าง ไม่ต้องเปิดแท็บใหม่
+            if (currentUrl.startsWith('blob:') || currentUrl.startsWith('file:')) {
+                window.location.hash = 'view=ex';
+                document.getElementById('searchSection').classList.add('hidden');
+                loadExPersonalView();
+                
+                // แจ้งเตือนเพื่อให้รู้ว่าเป็นโหมดทดสอบ
+                Swal.fire({
+                    icon: 'info',
+                    title: 'โหมดทดสอบพรีวิว',
+                    text: 'ระบบแสดงตารางในหน้าต่างเดิมเพื่อป้องกัน Error แต่เมื่อเอาไปใช้บนเว็บจริง ระบบจะเด้งเปิดแท็บใหม่ให้อัตโนมัติครับ',
+                    timer: 4000,
+                    showConfirmButton: false
+                });
+            } else {
+                // ถ้าอยู่บนเว็บจริง (https://...) ให้สั่งเปิดแท็บใหม่ไปเลย
+                window.open(currentUrl + '#view=ex', '_blank');
+            }
+        }
+
+        async function fetchAllData(showLoading = true) {
+            if (showLoading) {
+                Swal.fire({
+                    title: 'กำลังเชื่อมต่อฐานข้อมูล',
+                    html: 'กรุณารอสักครู่ ระบบกำลังดึงข้อมูลล่าสุด',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+            }
+
+            try {
+                const response = await fetch(`${WEB_APP_URL}?action=search&query=&_=${Date.now()}`);
+                const result = await response.json();
+                
+                if (result.status === "success" && Array.isArray(result.data)) {
+                    // แนบหมายเลขบรรทัด (sheetRow) ไปกับข้อมูลแต่ละแถว เพื่อให้อ้างอิงได้ถูกต้อง 100%
+                    cachedData = result.data.map((item, index) => ({
+                        ...item,
+                        sheetRow: index + 2 // +2 เพราะแถวที่ 1 เป็น Header และ Array เริ่มที่ 0
+                    }));
+                    if (showLoading) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'โหลดข้อมูลสำเร็จ',
+                            text: `ดึงข้อมูลทั้งหมด ${cachedData.length} รายการ`,
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    }
+                } else throw new Error("ข้อมูลไม่ถูกต้อง");
+            } catch (error) {
+                console.error("Live fetch failed, using mock data for preview:", error);
+                
+                // --- Fallback to Mock Data for Preview purposes ---
+                cachedData = MOCK_DATA.map((item, index) => ({ ...item, sheetRow: index + 2 }));
+                
+                if (showLoading) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'โหมดพรีวิว (Preview Mode)',
+                        text: 'เชื่อมต่อฐานข้อมูลจริงไม่สำเร็จ ระบบจะใช้ข้อมูลจำลอง (Mock Data) เพื่อการทดสอบ UI',
+                        timer: 3000,
+                        showConfirmButton: true,
+                        confirmButtonColor: '#4c1d95'
+                    });
+                }
+            }
+        }
+
+        function resetSystem() {
+            document.getElementById('searchInput').value = '';
+            toggleUI('welcome');
+            currentDisplayedData = [];
+            fetchAllData(true); // แก้ไขให้ดึงข้อมูลใหม่ทุกครั้งที่กด reset
+        }
+
+        function onFastSearch(query) {
+            if (!query && cachedData.length > 0) { 
+                // ถ้าไม่พิมพ์อะไรเลย ให้ดึงทั้งหมดมาโชว์
+                currentDisplayedData = cachedData;
+            } else if (!query) {
+                toggleUI('welcome'); 
+                currentDisplayedData = []; 
+                return; 
+            } else {
+                currentDisplayedData = cachedData.filter(row => {
+                    const searchString = `${row.colA} ${row.colB} ${row.colE} ${row.colL} ${row.colM} ${row.colN} ${row.colO} ${row.colD} ${row.colP}`.toLowerCase();
+                    return searchString.includes(query.toLowerCase());
+                });
+            }
+            
+            if (currentDisplayedData.length > 0) {
+                renderTable(currentDisplayedData);
+                document.getElementById('recordCount').innerText = `${currentDisplayedData.length} รายการ`;
+                toggleUI('table');
+            } else {
+                toggleUI('noData');
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr || dateStr === '-') return '-';
+            // ป้องกันการลบเวลาทิ้ง และรองรับกรณีที่มีเวลาขึ้นบรรทัดใหม่หลายครั้ง
+            if (String(dateStr).includes('\n')) {
+                return String(dateStr).split('\n').map(d => formatDate(d)).join('\n');
+            }
+            try {
+                // ถ้าเป็นรูปแบบเวลาอยู่แล้ว ไม่ต้องไปตัดทิ้ง (รักษาชั่วโมงนาทีไว้)
+                if (String(dateStr).includes('/') && String(dateStr).includes(':')) return dateStr; 
+                
+                const date = new Date(dateStr);
+                if (isNaN(date.getTime())) return dateStr;
+                const d = String(date.getDate()).padStart(2, '0');
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const y = date.getFullYear() + 543; 
+                return `${d}/${m}/${y}`;
+            } catch (e) {
+                return dateStr;
+            }
+        }
+
+        function renderTable(data) {
+            const headerRow = document.getElementById('tableHeader');
+            const resultBody = document.getElementById('resultBody');
+            headerRow.innerHTML = HEADERS.map(h => `<th class="px-6 py-5 whitespace-nowrap text-xs uppercase tracking-widest">${h}</th>`).join('') + `<th class="px-6 py-5 text-center sticky-action bg-slate-50/90 backdrop-blur-sm">จัดการ</th>`;
+
+            resultBody.innerHTML = data.map((row, idx) => {
+                const formattedTimestamp = formatDate(row.colQ);
+                const cols = [row.colA, row.colB, row.colC, row.colD, row.colE, row.colF, row.colG, row.colH, row.colI, row.colJ, row.colK, row.colL, row.colM, row.colN, row.colO, row.colP, formattedTimestamp];
+                
+                const rowContent = cols.map((val, innerIdx) => {
+                    let cellClass = "px-6 py-4 border-b border-slate-100 text-sm";
+                    // เพิ่ม index 16 (colQ) ให้สามารถขึ้นบรรทัดใหม่ได้แบบ history
+                    if ([3, 14, 15, 16].includes(innerIdx)) cellClass += " min-w-[200px] whitespace-normal";
+                    else cellClass += " whitespace-nowrap font-medium text-slate-700";
+                    
+                    // หากมี \n ให้แปลงเป็น <br> เพื่อแสดงผลขึ้นบรรทัดใหม่สวยๆ ในตาราง HTML
+                    let displayValue = (val === "" || val === null || val === undefined) ? "-" : String(val).replace(/\n/g, '<br>');
+                    return `<td class="${cellClass}">${displayValue}</td>`;
+                }).join('');
+
+                const colPValue = String(row.colP ?? "");
+                // เพิ่มการใช้ &quot; เพื่อป้องกัน HTML แตกเมื่อข้อมูลมีเครื่องหมาย " (Double Quote)
+                const safeRepairHistory = colPValue.replace(/\n/g, '\\n').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const safePersName = String(row.colN ?? "").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const safeCompName = String(row.colO ?? "").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const safeAssetId = String(row.colA ?? "").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const safeSerialNo = String(row.colB ?? "").replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const sheetRow = row.sheetRow || 0;
+
+                // ส่ง index ของแถวบนหน้าเว็บ และ sheetRow ของ Google Sheet ไปด้วย
+                const params = `'${safeSerialNo}', '${safeAssetId}', '${safePersName}', '${safeCompName}', '${safeRepairHistory}', ${idx}, ${sheetRow}`;
+                
+                // ใช้ปุ่มแก้ไขแบบเดิมปุ่มเดียว
+                return `<tr>${rowContent}<td class="px-6 py-4 text-center sticky-action border-b border-slate-100 bg-white/50 backdrop-blur-sm">
+                    <button onclick="openEditModal(${params})" title="แก้ไขข้อมูล" class="bg-indigo-50 text-indigo-600 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-600 hover:text-white transition-all shadow-sm hover:shadow-md flex items-center justify-center mx-auto group"><i class="fas fa-edit mr-2 group-hover:scale-110 transition-transform"></i> แก้ไข</button>
+                </td></tr>`;
+            }).join('');
+        }
+
+        // --- แก้ไขข้อมูล (Edit) ---
+        function openEditModal(serialNo, assetId, persName, compName, repairHistory, rowIndex, sheetRow) {
+            document.getElementById('refSerialNo').innerText = (serialNo === "" || serialNo == null) ? '-' : serialNo;
+            document.getElementById('refAssetAndPers').innerText = `${(assetId === "" || assetId == null) ? '-' : assetId} / ${(persName === "" || persName == null) ? '-' : persName}`;
+            document.getElementById('inputColO').value = (compName === '-' || !compName) ? '' : compName;
+            document.getElementById('inputColP').value = (repairHistory === '-' || !repairHistory) ? '' : repairHistory.replace(/\\n/g, '\n');
+            document.getElementById('editModal').classList.replace('hidden', 'flex');
+            
+            document.getElementById('saveBtn').onclick = () => saveChanges(assetId, serialNo, rowIndex, sheetRow);
+        }
+
+        function closeModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
+
+        async function saveChanges(assetId, serialNo, rowIndex, sheetRow) {
+            const valO = document.getElementById('inputColO').value; 
+            const valP = document.getElementById('inputColP').value; 
+
+            // --- ส่วนเพิ่มใหม่: Popup ตรวจสอบรหัสผ่าน ---
+            const allowedPasswords = [
+                "510614", "495189", "492655", "481426", 
+                "503481", "505251", "506449", "C3DCTDO401133"
+            ];
+
+            const { value: password, isConfirmed } = await Swal.fire({
+                title: 'ยืนยันตัวตน',
+                input: 'password',
+                inputLabel: 'กรุณากรอกรหัสผ่านเพื่อบันทึกข้อมูล',
+                inputPlaceholder: 'รหัสผ่านผู้ดูแลระบบ...',
+                showCancelButton: true,
+                confirmButtonColor: '#4c1d95',
+                cancelButtonColor: '#9ca3af',
+                confirmButtonText: 'ยืนยันบันทึก',
+                cancelButtonText: 'ยกเลิก',
+                inputValidator: (value) => {
+                    if (!value) return 'กรุณากรอกรหัสผ่าน!';
+                    if (!allowedPasswords.includes(value.trim())) return 'รหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์แก้ไข!';
+                }
+            });
+
+            if (!isConfirmed || !password) return; // หากไม่ได้กรอกหรือกดยกเลิก จะหยุดการทำงานทันที
+            
+            const operatorId = password.trim(); // รหัสพนักงานผู้ที่ทำรายการ
+            // ----------------------------------------
+            
+            closeModal();
+
+            // 1. สร้างเวลาใหม่ล่าสุด
+            const timestampNow = new Date().toLocaleString('th-TH');
+            let accumulatedTimestamp = timestampNow;
+
+            // ตรวจสอบว่าถ้า valP เป็นค่าว่าง ให้ accumulatedTimestamp เป็นค่าว่างไปด้วย
+            if (valP.trim() === "") {
+                accumulatedTimestamp = "";
+            } else {
+                // ดึงประวัติเวลาเดิมมาต่อท้ายด้วยเวลาใหม่ (บรรทัดล่าง)
+                const index = cachedData.findIndex(item => item.sheetRow === sheetRow);
+                if(index !== -1) {
+                    const oldQ = cachedData[index].colQ;
+                    // ถ้ามีเวลาเดิมอยู่แล้ว และไม่ได้เพิ่งกดเซฟซ้ำซ้อนกัน ให้ขึ้นบรรทัดใหม่แล้วต่อท้าย
+                    if (oldQ && oldQ !== "-" && !String(oldQ).includes(timestampNow)) {
+                        accumulatedTimestamp = oldQ + "\n" + timestampNow;
+                    }
+                }
+            }
+
+            // อัปเดตข้อมูลต้นฉบับในหน่วยความจำ
+            const indexToUpdate = cachedData.findIndex(item => item.sheetRow === sheetRow);
+            if (indexToUpdate !== -1) {
+                cachedData[indexToUpdate].colO = valO;
+                cachedData[indexToUpdate].colP = valP;
+                cachedData[indexToUpdate].colQ = accumulatedTimestamp;
+            }
+
+            // อัปเดตตารางที่กำลังแสดงผลอยู่ (Optimistic Update)
+            if(rowIndex !== undefined && currentDisplayedData[rowIndex]) {
+                currentDisplayedData[rowIndex].colO = valO;
+                currentDisplayedData[rowIndex].colP = valP;
+                currentDisplayedData[rowIndex].colQ = accumulatedTimestamp;
+            }
+
+            // รีเฟรชตารางให้แสดงค่าใหม่ที่แก้ไขทันที
+            onFastSearch(document.getElementById('searchInput').value.trim());
+
+            Swal.fire({
+                icon: 'success',
+                title: 'อัปเดตข้อมูลสำเร็จ!',
+                text: 'แสดงผลการแก้ไขแล้ว (ระบบกำลังบันทึกลงฐานข้อมูล)',
+                timer: 1500,
+                showConfirmButton: false
+            });
+
+            // 2. ส่งข้อมูลไปที่ Backend แบบเบื้องหลัง (แนบตัวแปร operator ไปด้วย)
+            try {
+                await fetch(WEB_APP_URL, { 
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    body: JSON.stringify({ 
+                        action: 'update', 
+                        key: assetId, 
+                        serial: serialNo, 
+                        valE: valO, 
+                        valF: valP, 
+                        valQ: accumulatedTimestamp, 
+                        sheetRow: sheetRow,
+                        operator: operatorId  // ส่งรหัสพนักงานที่ผ่านการตรวจสอบแล้ว ไปให้ Google Apps Script
+                    }) 
+                });
+            } catch (e) { 
+                console.error("Update failed in background", e);
+            }
+        }
+
+        // ==========================================
+        //         --- ระบบใหม่: Ex-Personal ---
+        // ==========================================
+        let exPersonalCachedData = [];
+        let exPersonalHeaders = [];
+
+        async function loadExPersonalView() {
+            toggleUI('exPersonal');
+            
+            Swal.fire({
+                title: 'กำลังดึงข้อมูล....',
+                html: 'กรุณารอสักครู่...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const response = await fetch(`${WEB_APP_URL}?action=fetchExPersonal&_=${Date.now()}`);
+                const result = await response.json();
+                
+                if (result.status === "success") {
+                    exPersonalHeaders = result.headers || [];
+                    exPersonalCachedData = result.data || [];
+                    
+                    // Reset input search
+                    const searchInput = document.getElementById('exPersonalSearchInput');
+                    if(searchInput) searchInput.value = '';
+
+                    populateExPersonalDropdown();
+                    renderExPersonalTable(exPersonalCachedData);
+                    
+                    Swal.fire({ icon: 'success', title: 'โหลดข้อมูลสำเร็จ', timer: 1000, showConfirmButton: false });
+                } else throw new Error(result.message);
+            } catch (error) {
+                console.error("Fetch Ex-Personal failed:", error);
+                
+                // Fallback: ข้อมูลจำลองเมื่อเชื่อมต่อไม่สำเร็จ เพื่อใช้ตรวจสอบ UI
+                exPersonalHeaders = ["Asset", "SNo.", "Col C", "Col D", "Col E", "Col F", "Col G", "Col H", "Col I", "Col J", "Col K", "หน่วยงาน", "Col M", "Col N", "Note"];
+                exPersonalCachedData = [
+                    { sheetRow: 2, rowData: ["EX-MOCK-01", "SN-MOCK-1", "-", "-", "-", "-", "-", "-", "-", "-", "-", "IT", "-", "-", "นี่คือข้อมูลจำลอง (ดึงข้อมูลจริงไม่สำเร็จ)"] }
+                ];
+                populateExPersonalDropdown();
+                renderExPersonalTable(exPersonalCachedData);
+
+                // แจ้งเตือนเพื่อให้รู้ตัวว่ามีปัญหาที่ Apps Script
+                Swal.fire({ 
+                    icon: 'warning', 
+                    title: 'เชื่อมต่อ Google Sheet ล้มเหลว', 
+                    text: 'ตอนนี้กำลังแสดงข้อมูลจำลอง (Mock Data) โปรดตรวจสอบให้แน่ใจว่าใน Apps Script ได้กดปุ่ม Deploy แบบ "New Version" แล้ว และชีทต้องมีชื่อว่า "other" พิมพ์เล็กทั้งหมด',
+                    confirmButtonColor: '#f59e0b'
+                });
+            }
+        }
+
+        function populateExPersonalDropdown() {
+            const select = document.getElementById('exPersonalFilter');
+            select.innerHTML = '<option value="">เลือกหน่วยงาน</option>';
+            
+            if (!exPersonalCachedData || exPersonalCachedData.length === 0) return;
+
+            // ดึงค่า Col L (Index 11) แบบไม่ซ้ำอย่างปลอดภัย
+            const uniqueColL = [...new Set(exPersonalCachedData.map(item => {
+                const arr = item.rowData || [];
+                return String(arr[11] || "").trim();
+            }))].filter(v => v !== "");
+            
+            uniqueColL.sort().forEach(val => {
+                const option = document.createElement('option');
+                option.value = val;
+                option.textContent = val;
+                select.appendChild(option);
+            });
+        }
+
+        // ฟังก์ชันฟิลเตอร์รวม (Dropdown + ช่องค้นหา)
+        function filterExPersonal() {
+            const filterValue = document.getElementById('exPersonalFilter').value.toLowerCase();
+            const searchValue = document.getElementById('exPersonalSearchInput').value.toLowerCase();
+
+            let filtered = exPersonalCachedData;
+
+            // กรองด้วย Dropdown (Col L)
+            if (filterValue !== "") {
+                filtered = filtered.filter(item => {
+                    const arr = item.rowData || [];
+                    return String(arr[11] || "").trim().toLowerCase() === filterValue;
+                });
+            }
+
+            // กรองด้วยช่องค้นหา (รวมทุกคอลัมน์)
+            if (searchValue !== "") {
+                filtered = filtered.filter(item => {
+                    const arr = item.rowData || [];
+                    const rowString = arr.join(" ").toLowerCase(); // จับทุกคอลัมน์มารวมกันเป็น String เดียว
+                    return rowString.includes(searchValue);
+                });
+            }
+
+            renderExPersonalTable(filtered);
+        }
+
+        function renderExPersonalTable(dataList) {
+            const headerTr = document.getElementById('exPersonalHeader');
+            const tbody = document.getElementById('exPersonalBody');
+            
+            // กรณีชีทไม่มีข้อมูลเลย
+            if (!dataList || dataList.length === 0) {
+                headerTr.innerHTML = `<th class="px-6 py-4 text-xs">ข้อมูลในระบบ</th>`;
+                tbody.innerHTML = `<tr><td class="text-center py-10 text-slate-500 font-bold">ไม่พบข้อมูล หรือ ชีทยังว่างเปล่าอยู่</td></tr>`;
+                return;
+            }
+
+            // สร้าง Header A-O (ข้าม P ที่เป็นรหัสผ่าน) อย่างปลอดภัย
+            let headerHTML = '';
+            const safeHeaders = exPersonalHeaders || [];
+            for(let i = 0; i < 15; i++) {
+                const hName = safeHeaders[i] || `Col ${String.fromCharCode(65+i)}`;
+                headerHTML += `<th class="px-6 py-4 whitespace-nowrap text-xs uppercase tracking-widest">${hName}</th>`;
+            }
+            headerHTML += `<th class="px-6 py-4 text-center sticky-action bg-emerald-50 text-emerald-900">จัดการ</th>`;
+            headerTr.innerHTML = headerHTML;
+
+            // สร้าง Body (เพิ่มปุ่มลบ)
+            tbody.innerHTML = dataList.map((item, index) => {
+                let rowHTML = '';
+                const safeRowData = item.rowData || [];
+                for(let i = 0; i < 15; i++) {
+                    const val = (safeRowData[i] === "" || safeRowData[i] == null) ? "-" : String(safeRowData[i]).replace(/\n/g, '<br>');
+                    rowHTML += `<td class="px-6 py-3 border-b border-slate-100 text-sm whitespace-nowrap">${val}</td>`;
+                }
+                
+                rowHTML += `<td class="px-6 py-3 text-center sticky-action border-b border-slate-100 bg-white/50 backdrop-blur-sm flex gap-2 justify-center items-center h-full min-w-[120px]">
+                    <button onclick="openExPersonalModal(true, ${index})" class="bg-amber-50 text-amber-600 w-8 h-8 rounded-lg font-bold hover:bg-amber-500 hover:text-white transition-all shadow-sm flex items-center justify-center text-xs" title="แก้ไข">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteExPersonalData(${item.sheetRow})" class="bg-rose-50 text-rose-600 w-8 h-8 rounded-lg font-bold hover:bg-rose-600 hover:text-white transition-all shadow-sm flex items-center justify-center text-xs" title="ลบข้อมูล">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>`;
+                return `<tr>${rowHTML}</tr>`;
+            }).join('');
+        }
+
+        // ฟังก์ชันลบข้อมูล Ex-Personal
+        async function deleteExPersonalData(sheetRow) {
+            // --- ตรวจสอบรหัสผ่าน ---
+            const allowedPasswords = [
+                "495189", "492655", "510614", "401133", 
+                "481426", "503481", "505251", "506449"
+            ];
+
+            const { value: password, isConfirmed } = await Swal.fire({
+                title: 'ยืนยันการลบข้อมูล',
+                text: "ข้อมูลบรรทัดนี้จะถูกลบออกจากฐานข้อมูลอย่างถาวร!",
+                icon: 'warning',
+                input: 'password',
+                inputLabel: 'กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ',
+                showCancelButton: true,
+                confirmButtonColor: '#e11d48', // สีแดง
+                cancelButtonColor: '#9ca3af',
+                confirmButtonText: 'ยืนยันการลบ',
+                cancelButtonText: 'ยกเลิก',
+                inputValidator: (value) => {
+                    if (!value) return 'กรุณากรอกรหัสผ่าน!';
+                    if (!allowedPasswords.includes(value.trim())) return 'รหัสผ่านไม่ถูกต้อง หรือไม่มีสิทธิ์ลบ!';
+                }
+            });
+
+            if (!isConfirmed || !password) return; // ยกเลิกการลบ
+
+            Swal.fire({ title: 'กำลังลบข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+                // ส่งคำสั่งไปลบที่ Apps Script (ไม่ต้องส่ง operator id เพราะไม่ต้องการบันทึกลง Col P)
+                const payload = {
+                    action: 'deleteExPersonal',
+                    sheetRow: parseInt(sheetRow)
+                };
+
+                const response = await fetch(WEB_APP_URL, { 
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    body: JSON.stringify(payload) 
+                });
+
+                // แจ้งเตือน และสั่งให้ดึงข้อมูลใหม่ทั้งหมด เพื่อรีเซ็ตลำดับ SheetRow ให้ตรงกับความจริง
+                Swal.fire({ icon: 'success', title: 'ลบข้อมูลสำเร็จ!', timer: 1500, showConfirmButton: false });
+                
+                setTimeout(() => {
+                    loadExPersonalView(); // โหลดข้อมูลใหม่ทั้งหมดเพื่อความชัวร์เรื่องเลขบรรทัด
+                }, 1500);
+
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: err.toString() });
+            }
+        }
+
+        // ==============================================
+        // ฟังก์ชันช่วยเหลือสำหรับหน้าต่าง Modal แบบใหม่
+        // ==============================================
+        let exPersonalDeptMapping = {};
+
+        // ดึงคู่ข้อมูล K (ศ.ต้นทุน) และ L (หน่วยงานย่อ) เพื่อทำออโต้ฟิล
+        function buildExPersonalMappings() {
+            exPersonalDeptMapping = {};
+            if (!exPersonalCachedData) return;
+            exPersonalCachedData.forEach(item => {
+                const arr = item.rowData || [];
+                const kVal = String(arr[10] || "").trim(); // Col K
+                const lVal = String(arr[11] || "").trim(); // Col L
+                if (lVal && kVal && kVal !== "-") {
+                    exPersonalDeptMapping[lVal] = kVal;
+                }
+            });
+        }
+
+        // ดึงข้อมูลที่ไม่ซ้ำกันในแต่ละคอลัมน์เพื่อมาทำ Dropdown
+        function getUniqueExPersonalColumnOptions(colIndex) {
+            const options = new Set();
+            if (!exPersonalCachedData) return [];
+            exPersonalCachedData.forEach(item => {
+                const arr = item.rowData || [];
+                const val = String(arr[colIndex] || "").trim();
+                if (val && val !== "-") options.add(val);
+            });
+            return Array.from(options).sort();
+        }
+
+        // เมื่อ Dropdown Col L เปลี่ยนค่า ให้ไปอัปเดต Col K
+        function updateColKMapping(selectedL) {
+            const inputK = document.getElementById('exInput_10');
+            if (inputK) {
+                inputK.value = exPersonalDeptMapping[selectedL] || "";
+            }
+        }
+
+        // เปิดหน้าต่าง Modal (แก้ไขใหม่ตามเงื่อนไข Dropdown)
+        function openExPersonalModal(isEdit, index = -1) {
+            const formContainer = document.getElementById('exPersonalFormContainer');
+            formContainer.innerHTML = ''; // Clear old inputs
+            
+            document.getElementById('exModalTitle').innerHTML = isEdit ? '<i class="fas fa-edit text-amber-500 mr-3"></i> แก้ไขข้อมูล' : '<i class="fas fa-plus text-emerald-500 mr-3"></i> เพิ่มข้อมูลใหม่';
+            
+            // หาข้อมูลที่แท้จริงจาก index เพราะเมื่อฟิลเตอร์แล้ว index อาจจะไม่ตรงกับข้อมูลทั้งหมด
+            let targetItem = null;
+            if (isEdit) {
+                // อ้างอิงจาก filtered data ที่กำลังแสดงอยู่ ไม่ใช่ cached ทั้งหมด
+                const filterValue = document.getElementById('exPersonalFilter').value.toLowerCase();
+                const searchValue = document.getElementById('exPersonalSearchInput').value.toLowerCase();
+                
+                let currentViewData = exPersonalCachedData;
+                if (filterValue !== "") currentViewData = currentViewData.filter(item => String(item.rowData[11] || "").trim().toLowerCase() === filterValue);
+                if (searchValue !== "") currentViewData = currentViewData.filter(item => item.rowData.join(" ").toLowerCase().includes(searchValue));
+                
+                targetItem = currentViewData[index];
+            }
+
+            const targetData = isEdit && targetItem ? targetItem.rowData : Array(15).fill("");
+            const targetSheetRow = isEdit && targetItem ? targetItem.sheetRow : "";
+            
+            // ต้องหา index จริงๆใน cache หลัก เพื่อใช้อัปเดต UI ชั่วคราวก่อนรีเฟรช
+            const realIndex = isEdit && targetItem ? exPersonalCachedData.findIndex(item => item.sheetRow === targetItem.sheetRow) : "";
+
+            document.getElementById('exPersonalTargetSheetRow').value = targetSheetRow;
+            document.getElementById('exPersonalTargetIndex').value = realIndex;
+
+            // สร้างอัปเดตข้อมูลคู่ K-L ก่อนเรนเดอร์
+            buildExPersonalMappings();
+
+            // สร้าง Input 15 ช่อง (A-O)
+            const safeHeaders = exPersonalHeaders || [];
+            for(let i = 0; i < 15; i++) {
+                const labelName = safeHeaders[i] || `Column ${String.fromCharCode(65+i)}`;
+                const currentValue = String(targetData[i] || "").replace(/"/g, '&quot;');
+                let inputElement = '';
+
+                const inputBaseClass = "w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 outline-none text-sm text-slate-800 transition-all";
+
+                if (i === 0 || i === 4 || i === 12 || i === 13 || i === 14) {
+                    // เงื่อนไข: Col A (0), Col E (4), Col M (12), Col N (13), Col O (14) ให้พิมพ์ข้อความได้ปกติ
+                    inputElement = `<input type="text" id="exInput_${i}" value="${currentValue}" class="${inputBaseClass} bg-slate-50 focus:bg-white placeholder:text-slate-300" placeholder="พิมพ์ข้อมูล...">`;
+                } 
+                else if (i === 10) {
+                    // เงื่อนไข: Col K (10) สีเทา พิมพ์ไม่ได้ ค่าอิงจาก L
+                    inputElement = `<input type="text" id="exInput_${i}" value="${currentValue}" readonly class="${inputBaseClass} bg-slate-200 text-slate-500 cursor-not-allowed" placeholder="ดึงอัตโนมัติตามหน่วยงาน">`;
+                }
+                else if (i === 11) {
+                    // เงื่อนไข: Col L (11) Dropdown เมื่อเลือกแล้วเปลี่ยนค่า K
+                    const options = Object.keys(exPersonalDeptMapping).sort();
+                    let optsHtml = `<option value="">-- เลือกหน่วยงาน --</option>`;
+                    let foundCurrent = false;
+                    options.forEach(opt => {
+                        const selected = (opt === currentValue) ? 'selected' : '';
+                        if(selected) foundCurrent = true;
+                        optsHtml += `<option value="${opt}" ${selected}>${opt}</option>`;
+                    });
+                    // กันเหนียวกรณีคลิกแก้ไขแล้ว ค่าเดิมไม่มีใน dropdown
+                    if(currentValue && !foundCurrent) optsHtml += `<option value="${currentValue}" selected>${currentValue}</option>`; 
+                    
+                    inputElement = `<select id="exInput_${i}" onchange="updateColKMapping(this.value)" class="${inputBaseClass} bg-slate-50 focus:bg-white cursor-pointer">${optsHtml}</select>`;
+                }
+                else {
+                    // เงื่อนไข: คอลัมน์อื่นๆ ใช้ Dropdown ดึงค่าจากฐานข้อมูล
+                    const options = getUniqueExPersonalColumnOptions(i);
+                    let optsHtml = `<option value="">-- เลือกจากฐานข้อมูล --</option>`;
+                    let foundCurrent = false;
+                    options.forEach(opt => {
+                        const selected = (opt === currentValue) ? 'selected' : '';
+                        if(selected) foundCurrent = true;
+                        optsHtml += `<option value="${opt}" ${selected}>${opt}</option>`;
+                    });
+                    if(currentValue && !foundCurrent) optsHtml += `<option value="${currentValue}" selected>${currentValue}</option>`;
+
+                    inputElement = `<select id="exInput_${i}" class="${inputBaseClass} bg-slate-50 focus:bg-white cursor-pointer">${optsHtml}</select>`;
+                }
+
+                const inputHtml = `
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">${labelName}</label>
+                        ${inputElement}
+                    </div>
+                `;
+                formContainer.innerHTML += inputHtml;
+            }
+
+            document.getElementById('exPersonalModal').classList.replace('hidden', 'flex');
+        }
+
+        function closeExPersonalModal() {
+            document.getElementById('exPersonalModal').classList.replace('flex', 'hidden');
+        }
+
+        async function saveExPersonalData() {
+            // ดึงค่าจากทั้ง 15 ช่อง
+            const rowData = [];
+            for(let i = 0; i < 15; i++) {
+                rowData.push(document.getElementById(`exInput_${i}`).value);
+            }
+
+            const sheetRow = document.getElementById('exPersonalTargetSheetRow').value;
+            const isEdit = sheetRow !== "";
+
+            // --- ตรวจสอบรหัสผ่าน ---
+            const allowedPasswords = [
+                "495189", "492655", "510614", "401133", 
+                "481426", "503481", "505251", "506449"
+            ];
+
+            const { value: password, isConfirmed } = await Swal.fire({
+                title: 'ยืนยันตัวตน',
+                input: 'password',
+                inputLabel: 'กรุณากรอกรหัสเพื่อบันทึกข้อมูล',
+                showCancelButton: true,
+                confirmButtonColor: '#059669',
+                confirmButtonText: 'บันทึก',
+                inputValidator: (value) => {
+                    if (!value) return 'กรุณากรอกรหัส!';
+                    if (!allowedPasswords.includes(value.trim())) return 'รหัสผ่านไม่ถูกต้อง!';
+                }
+            });
+
+            if (!isConfirmed || !password) return;
+            const operatorId = password.trim();
+            // ------------------------
+
+            closeExPersonalModal();
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+                const actionName = isEdit ? 'updateExPersonal' : 'addExPersonal';
+                const payload = {
+                    action: actionName,
+                    rowData: rowData,
+                    operator: operatorId
+                };
+                if (isEdit) payload.sheetRow = parseInt(sheetRow);
+
+                const response = await fetch(WEB_APP_URL, { 
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    body: JSON.stringify(payload) 
+                });
+
+                // Optimistic Update บนหน้าเว็บเพื่อให้เห็นผลทันที
+                if (isEdit) {
+                    const targetIdx = document.getElementById('exPersonalTargetIndex').value;
+                    if(targetIdx !== "") {
+                        exPersonalCachedData[targetIdx].rowData = rowData;
+                    }
+                } else {
+                    // สร้างบรรทัดสมมติให้แสดงผลก่อน เดี๋ยวรีเฟรชก็หาย
+                    exPersonalCachedData.push({ sheetRow: 99999, rowData: rowData }); 
+                    populateExPersonalDropdown();
+                }
+                
+                filterExPersonal(); // Re-render
+
+                Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', timer: 1500, showConfirmButton: false });
+                
+                // เพื่อให้มั่นใจเรื่อง SheetRow (เลขบรรทัด) ควรสั่งโหลดข้อมูลใหม่ทั้งหมด
+                if(!isEdit) {
+                    setTimeout(() => { loadExPersonalView(); }, 1500);
+                }
+
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: err.toString() });
+            }
+        }
+
+        // ==========================================
+        //             --- ส่วนฟังก์ชัน UI รวม ---
+        // ==========================================
+        function toggleUI(state) { 
+            // ซ่อนหน้าต่างและ UI ทุกๆ ส่วนทิ้งไปก่อน
+            ['welcomeState', 'tableWrapper', 'noData', 'exPersonalWrapper', 'mainContent'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                }
+            }); 
+            
+            // โหมดแสดงหน้าจอหลัก (ระบบเดิม)
+            if (state === 'welcome' || state === 'table' || state === 'noData') {
+                const mainContent = document.getElementById('mainContent');
+                mainContent.classList.remove('hidden');
+                mainContent.classList.add('flex');
+
+                if (state === 'welcome') document.getElementById('welcomeState').classList.remove('hidden'); 
+                if (state === 'table') {
+                    const tw = document.getElementById('tableWrapper');
+                    tw.classList.remove('hidden');
+                    tw.classList.add('flex');
+                }
+                if (state === 'noData') document.getElementById('noData').classList.remove('hidden'); 
+            }
+
+            // โหมดแสดงเฉพาะส่วนของ Ex-Personal 
+            if (state === 'exPersonal') {
+                const exWrap = document.getElementById('exPersonalWrapper');
+                exWrap.classList.remove('hidden');
+                exWrap.classList.add('flex');
+            }
+        }
+
+        // --- Export Functions (คงเดิม 100%) ---
+        function openExportModal() { if (currentDisplayedData.length === 0) return; document.getElementById('exportModal').classList.replace('hidden', 'flex'); }
+        function closeExportModal() { document.getElementById('exportModal').classList.replace('flex', 'hidden'); }
+        function previewAndExport(type) { closeExportModal(); if (type === 'excel') showExcelPreview(); else if (type === 'pdf') showPDFPreview(); }
+        
+        function showPDFPreview() { 
+            const previewModal = document.getElementById('pdfPreviewModal'); 
+            const previewContent = document.getElementById('pdfContentToExport'); 
+            let dynamicFontSize = currentDisplayedData.length > 25 ? (currentDisplayedData.length > 50 ? '4.5pt' : '5.5pt') : '6.5pt';
+            let htmlStr = `<div style="display:flex; justify-content:space-between; border-bottom: 2px solid #4c1d95; padding-bottom: 8px; margin-bottom: 12px;"><div><h1 style="font-size: 14pt; font-weight: bold; margin: 0; color: #4c1d95;">รายงานสรุปข้อมูลทรัพย์สินด้านไอที (PEA)</h1><p style="font-size: 7pt; color: #6b7280; margin-top: 3px;">ข้อมูล ณ วันที่: ${new Date().toLocaleString('th-TH')}</p></div><div style="text-align: right;"><p style="font-size: 9pt; font-weight: bold; color: #e11d48; margin: 0;">พบทั้งหมด: ${currentDisplayedData.length} รายการ</p></div></div><table style="width: 100%; table-layout: fixed; border-collapse: collapse; font-size: ${dynamicFontSize}; border: 0.1pt solid #cbd5e1;"><thead><tr style="background-color: #faf5ff; color: #4c1d95;">`;
+            const widths = ['6%', '4%', '7%', '10%', '7%', '6%', '6%', '6%', '6%', '4%', '5%', '5%', '5%', '8%', '7%', '10%', '8%'];
+            HEADERS.forEach((h, i) => { htmlStr += `<th style="width: ${widths[i]}; border: 0.1pt solid #cbd5e1; padding: 4px 2px; text-align: left; font-weight: bold;">${h}</th>`; });
+            htmlStr += `</tr></thead><tbody>`;
+            currentDisplayedData.forEach((row, idx) => {
+                const formattedTimestamp = formatDate(row.colQ);
+                const cols = [row.colA, row.colB, row.colC, row.colD, row.colE, row.colF, row.colG, row.colH, row.colI, row.colJ, row.colK, row.colL, row.colM, row.colN, row.colO, row.colP, formattedTimestamp];
+                htmlStr += `<tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">` + cols.map(v => {
+                    let displayValue = (v === "" || v === null || v === undefined) ? "-" : String(v).replace(/\n/g, '<br>');
+                    return `<td style="border: 0.1pt solid #cbd5e1; padding: 3px 2px; vertical-align: top; overflow-wrap: break-word;">${displayValue}</td>`;
+                }).join('') + '</tr>';
+            });
+            htmlStr += `</tbody></table>`;
+            previewContent.innerHTML = htmlStr;
+            previewModal.classList.replace('hidden', 'flex');
+        }
+
+        function closePDFPreview() { document.getElementById('pdfPreviewModal').classList.replace('flex', 'hidden'); }
+        
+        async function finalDownloadPDF() { 
+            const element = document.getElementById('pdfContentToExport'); 
+            const opt = { margin: 5, filename: `PEA_IT_Asset_Report_${Date.now()}.pdf`, jsPDF: { orientation: 'landscape' } }; 
+            
+            Swal.fire({ title: 'กำลังสร้างไฟล์ PDF...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try { 
+                await html2pdf().set(opt).from(element).save(); 
+                closePDFPreview(); 
+                Swal.fire({ icon: 'success', title: 'ดาวน์โหลดสำเร็จ', timer: 1500, showConfirmButton: false });
+            } catch (err) { 
+                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด' });
+            } 
+        }
+
+        function showExcelPreview() { 
+            const headerRow = document.getElementById('previewTableHeader'); 
+            const bodyRow = document.getElementById('previewTableBody'); 
+            headerRow.innerHTML = HEADERS.map(h => `<th class="p-2 border border-slate-200 bg-slate-100 text-slate-800">${h}</th>`).join('');
+            bodyRow.innerHTML = currentDisplayedData.slice(0, 5).map(row => {
+                const formattedTimestamp = formatDate(row.colQ);
+                const cols = [row.colA, row.colB, row.colC, row.colD, row.colE, row.colF, row.colG, row.colH, row.colI, row.colJ, row.colK, row.colL, row.colM, row.colN, row.colO, row.colP, formattedTimestamp];
+                return `<tr>${cols.map(c => {
+                    let displayValue = (c === "" || c === null || c === undefined) ? "-" : String(c).replace(/\n/g, '<br>');
+                    return `<td class="p-2 border border-slate-100 text-slate-700">${displayValue}</td>`
+                }).join('')}</tr>`;
+            }).join('');
+            document.getElementById('excelPreviewModal').classList.replace('hidden', 'flex'); 
+        }
+
+        function closeExcelPreview() { document.getElementById('excelPreviewModal').classList.replace('flex', 'hidden'); }
+        
+        function finalDownloadExcel() { 
+            Swal.fire({ title: 'กำลังสร้างไฟล์ Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            setTimeout(() => {
+                const exportData = currentDisplayedData.map(row => {
+                    let obj = {};
+                    const formattedTimestamp = formatDate(row.colQ);
+                    const cols = [row.colA, row.colB, row.colC, row.colD, row.colE, row.colF, row.colG, row.colH, row.colI, row.colJ, row.colK, row.colL, row.colM, row.colN, row.colO, row.colP, formattedTimestamp];
+                    HEADERS.forEach((h, i) => {
+                        obj[h] = (cols[i] === "" || cols[i] === null || cols[i] === undefined) ? "" : cols[i];
+                    });
+                    return obj;
+                });
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new(); 
+                XLSX.utils.book_append_sheet(wb, ws, "Assets"); 
+                XLSX.writeFile(wb, `PEA_IT_Asset_Report_${Date.now()}.xlsx`); 
+                closeExcelPreview();
+                Swal.fire({ icon: 'success', title: 'ดาวน์โหลดสำเร็จ', timer: 1500, showConfirmButton: false });
+            }, 500);
+        }
+
+    </script>
+</body>
+</html>
